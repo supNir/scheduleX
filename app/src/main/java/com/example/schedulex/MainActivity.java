@@ -13,8 +13,13 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        Intent intent = getIntent();
+        String username = intent.getStringExtra("username");
+        String role = intent.getStringExtra("role");
+
         Button btnRegister = findViewById(R.id.btnRegister);
         Button btnLogin = findViewById(R.id.btnLogin);
+
 
         // Переход на экран регистрации
         btnRegister.setOnClickListener(new View.OnClickListener() {

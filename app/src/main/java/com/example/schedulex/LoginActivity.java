@@ -2,19 +2,29 @@ package com.example.schedulex;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.MenuItem;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -27,6 +37,14 @@ public class LoginActivity extends AppCompatActivity {
         EditText etPassword = findViewById(R.id.etLoginPassword);
         Button btnLogin = findViewById(R.id.btnLoginSubmit);
 
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setDisplayShowHomeEnabled(true);
+        }
+
         btnLogin.setOnClickListener(v -> {
             String username = etUsername.getText().toString();
             String password = etPassword.getText().toString();
@@ -38,48 +56,101 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
     }
+    @Override
+    public boolean onSupportNavigateUp() {
+        finish();
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            // Переход на главный экран (MainActivity)
+            Intent intent = new Intent(LoginActivity.this, MainActivity.class); // Для LoginActivity - тоже MainActivity
+            startActivity(intent);
+            finish(); // Закрыть текущую активность
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
 
     private void loginUser(final String username, final String password) {
-        new Thread(() -> {
-            HttpURLConnection urlConnection = null;
-            try {
-                URL url = new URL("http://192.168.31.234/schedulex/login_user.php");
-                urlConnection = (HttpURLConnection) url.openConnection();
-                urlConnection.setDoOutput(true);
-                urlConnection.setRequestMethod("POST");
-                urlConnection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                HttpURLConnection urlConnection = null;
+                try {
+                    URL url = new URL(Constants.URL_LOGIN);
+                    urlConnection = (HttpURLConnection) url.openConnection();
+                    urlConnection.setDoOutput(true);
+                    urlConnection.setRequestMethod("POST");
+                    urlConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
 
-                // Формирование JSON-объекта
-                JSONObject jsonParam = new JSONObject();
-                jsonParam.put("username", username);
-                jsonParam.put("password", password);
+                    String postData = "username=" + URLEncoder.encode(username, "UTF-8") +
+                            "&password=" + URLEncoder.encode(password, "UTF-8");
 
-                // Отправка данных
-                OutputStream os = urlConnection.getOutputStream();
-                BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, "UTF-8"));
-                writer.write(jsonParam.toString());
-                writer.flush();
-                writer.close();
-                os.close();
+                    OutputStream os = urlConnection.getOutputStream();
+                    BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, "UTF-8"));
+                    writer.write(postData);
+                    writer.flush();
+                    writer.close();
+                    os.close();
 
-                // Чтение ответа
-                int responseCode = urlConnection.getResponseCode();
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    runOnUiThread(() -> {
-                        Toast.makeText(LoginActivity.this, "Авторизация успешна", Toast.LENGTH_SHORT).show();
-                        Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                        startActivity(intent);
-                        finish();
-                    });
-                } else {
-                    runOnUiThread(() -> Toast.makeText(LoginActivity.this, "Ошибка авторизации", Toast.LENGTH_SHORT).show());
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                runOnUiThread(() -> Toast.makeText(LoginActivity.this, "Ошибка соединения", Toast.LENGTH_SHORT).show());
-            } finally {
-                if (urlConnection != null) {
-                    urlConnection.disconnect();
+                    int responseCode = urlConnection.getResponseCode();
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        InputStream responseStream = new BufferedInputStream(urlConnection.getInputStream());
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(responseStream));
+                        StringBuilder response = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            response.append(line);
+                        }
+                        reader.close();
+
+                        JSONObject jsonResponse = new JSONObject(response.toString());
+                        if (jsonResponse.getInt("success") == 1) {
+                            runOnUiThread(() -> {
+                                Toast.makeText(LoginActivity.this, "Авторизация успешна", Toast.LENGTH_SHORT).show();
+                                JSONObject user = null;
+                                try {
+                                    user = jsonResponse.getJSONObject("user");
+                                } catch (JSONException e) {
+                                    throw new RuntimeException(e);
+                                }
+                                String username = null;
+                                try {
+                                    username = user.getString("username");
+                                } catch (JSONException e) {
+                                    throw new RuntimeException(e);
+                                }
+                                String role = null;
+                                try {
+                                    role = user.getString("role");
+                                } catch (JSONException e) {
+                                    throw new RuntimeException(e);
+                                }
+
+                                // Переход на главный экран
+                                Intent intent = new Intent(LoginActivity.this, ScheduleActivity.class);
+                                intent.putExtra("username", username);
+                                intent.putExtra("role", role);
+                                startActivity(intent);
+                                finish();
+                            });
+                        } else {
+                            String message = jsonResponse.getString("message");
+                            runOnUiThread(() -> Toast.makeText(LoginActivity.this, message, Toast.LENGTH_SHORT).show());
+                        }
+                    } else {
+                        runOnUiThread(() -> Toast.makeText(LoginActivity.this, "Ошибка сервера", Toast.LENGTH_SHORT).show());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    runOnUiThread(() -> Toast.makeText(LoginActivity.this, "Ошибка подключения", Toast.LENGTH_SHORT).show());
+                } finally {
+                    if (urlConnection != null) {
+                        urlConnection.disconnect();
+                    }
                 }
             }
         }).start();
