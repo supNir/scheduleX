@@ -5,7 +5,9 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.view.ActionMode;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -17,13 +19,16 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -41,13 +46,7 @@ import java.util.Map;
 
 public class ScheduleActivity extends AppCompatActivity {
 
-    private LinearLayout mondayContent;
-    private LinearLayout tuesdayContent;
-    private LinearLayout wednesdayContent;
-    private LinearLayout thursdayContent;
-    private LinearLayout fridayContent;
-    private LinearLayout saturndayContent;
-    private LinearLayout sundayContent;
+    private LinearLayout mondayContent, tuesdayContent, wednesdayContent, thursdayContent, fridayContent, saturndayContent, sundayContent;
     private boolean isEditMode = false;
     private String userRole = "user"; // Должно задаваться при авторизации
     // Локальное хранилище изменений
@@ -79,6 +78,7 @@ public class ScheduleActivity extends AppCompatActivity {
         setupDaySchedule(R.id.saturndayHeader, R.id.saturndayContent, "saturday");
         setupDaySchedule(R.id.sundayHeader, R.id.sundayContent, "sunday");
     }
+
     private void setupDaySchedule(int headerId, int contentId, String dayOfWeek) {
         LinearLayout contentView = findViewById(contentId);
         contentView.post(() -> contentView.setTag(measureContentHeight(contentView)));
@@ -94,6 +94,7 @@ public class ScheduleActivity extends AppCompatActivity {
             }
         });
     }
+
     private void animateContentExpansion(LinearLayout contentLayout) {
         // Отключаем мгновенный пересчёт высоты
         contentLayout.measure(
@@ -166,6 +167,7 @@ public class ScheduleActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.schedule_menu, menu);
+
         return true;
     }
 
@@ -174,8 +176,20 @@ public class ScheduleActivity extends AppCompatActivity {
         super.onPrepareOptionsMenu(menu);
         boolean isAdmin = userRole.equals("admin");
         menu.findItem(R.id.action_add).setVisible(isAdmin);
-        menu.findItem(R.id.action_remove).setVisible(isAdmin);
+        menu.findItem(R.id.action_remove).setVisible(isAdmin && hasSelectedItems());
+
         return true;
+    }
+
+    private boolean hasSelectedItems() {
+        for (LinearLayout dayLayout : new LinearLayout[]{mondayContent, tuesdayContent, wednesdayContent, thursdayContent, fridayContent, saturndayContent, sundayContent}) {
+            for (int i = 0; i < dayLayout.getChildCount(); i++) {
+                if (dayLayout.getChildAt(i).isSelected()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
@@ -183,14 +197,66 @@ public class ScheduleActivity extends AppCompatActivity {
         if (item.getItemId() == R.id.action_add) {
             showAddScheduleDialog();
             return true;
-        }
-        else if (item.getItemId() == R.id.action_remove) {
+        } else if (item.getItemId() == R.id.action_remove) {
+            deleteSelectedItems();
             return true;
-        }
-        else {
+        } else {
             return super.onOptionsItemSelected(item);
         }
     }
+
+    private void deleteSelectedItems() {
+        for (LinearLayout dayLayout : new LinearLayout[]{mondayContent, tuesdayContent, wednesdayContent, thursdayContent, fridayContent, saturndayContent, sundayContent}) {
+            for (int i = dayLayout.getChildCount() - 1; i >= 0; i--) {
+                View child = dayLayout.getChildAt(i);
+                if (child.isSelected()) {
+                    int scheduleId = (int) child.getTag(); // Получение id расписания из тега
+
+                    // Отправляем запрос на удаление
+                    new Thread(() -> {
+                        try {
+                            URL url = new URL(Constants.URL_DELETE_SCHEDULE);
+                            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                            connection.setRequestMethod("POST");
+                            connection.setDoOutput(true);
+
+                            String data = "schedule_id=" + scheduleId;
+                            OutputStream outputStream = connection.getOutputStream();
+                            outputStream.write(data.getBytes(StandardCharsets.UTF_8));
+                            outputStream.flush();
+                            outputStream.close();
+
+                            int responseCode = connection.getResponseCode();
+                            if (responseCode == HttpURLConnection.HTTP_OK) {
+                                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                                StringBuilder response = new StringBuilder();
+                                String line;
+                                while ((line = reader.readLine()) != null) {
+                                    response.append(line);
+                                }
+                                reader.close();
+
+                                JSONObject jsonResponse = new JSONObject(response.toString());
+                                if (jsonResponse.getInt("success") == 1) {
+                                    runOnUiThread(() -> dayLayout.removeView(child)); // Удаляем элемент из UI
+                                } else {
+                                    showErrorToast("Ошибка удаления: " + jsonResponse.getString("message"));
+                                }
+                            } else {
+                                showErrorToast("Ошибка подключения");
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            showErrorToast("Ошибка подключения");
+                        }
+                    }).start();
+                }
+            }
+        }
+        updateToolbarMenu(); // Обновление меню
+        Toast.makeText(this, "Выбранные элементы удалены", Toast.LENGTH_SHORT).show();
+    }
+
 
     private boolean validateInputs(String dayOfWeek, String startTime, String endTime, String subject, String room) {
         if (dayOfWeek.isEmpty() || startTime.isEmpty() || endTime.isEmpty() || subject.isEmpty() || room.isEmpty()) {
@@ -233,8 +299,9 @@ public class ScheduleActivity extends AppCompatActivity {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 // Получаем выбранный объект
-                String item = (String)parent.getItemAtPosition(position);
+                String item = (String) parent.getItemAtPosition(position);
             }
+
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
             }
@@ -347,6 +414,7 @@ public class ScheduleActivity extends AppCompatActivity {
             }
         }).start();
     }
+
     private LinearLayout getContentLayout(String day) {
         switch (day) {
             case "monday":
@@ -403,6 +471,19 @@ public class ScheduleActivity extends AppCompatActivity {
                                     rowLayout.setOrientation(LinearLayout.HORIZONTAL);
                                     rowLayout.setPadding(8, 8, 8, 8);
 
+                                    // Установка обработчика долгого нажатия для выделения фона
+                                    rowLayout.setOnLongClickListener(v -> {
+                                        // Переключение фона
+                                        if (v.isSelected()) {
+                                            v.setBackgroundColor(Color.TRANSPARENT); // Сброс фона
+                                        } else {
+                                            v.setBackgroundColor(Color.parseColor("#FFCC00")); // Изменение фона на желтый
+                                        }
+                                        v.setSelected(!v.isSelected()); // Переключение состояния выделения
+                                        updateToolbarMenu(); // Обновление тулбара
+                                        return true; // Возвращаем true, чтобы не передавать событие дальше
+                                    });
+
                                     LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
 
                                     TextView startTime = new TextView(this);
@@ -420,6 +501,7 @@ public class ScheduleActivity extends AppCompatActivity {
                                     classroom.setText(schedule.getString("room"));
                                     classroom.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
 
+                                    rowLayout.setTag(schedule.getInt("id"));
                                     rowLayout.addView(startTime);
                                     rowLayout.addView(subject);
                                     rowLayout.addView(classroom);
@@ -433,6 +515,7 @@ public class ScheduleActivity extends AppCompatActivity {
                             // Запускаем анимацию после загрузки данных
                             animateContentExpansion(contentLayout);
                         });
+
                     } else {
                         showErrorToast("Ошибка: " + jsonResponse.getString("message"));
                     }
@@ -445,6 +528,34 @@ public class ScheduleActivity extends AppCompatActivity {
             }
         }).start();
     }
+
+
+    private void updateToolbarMenu() {
+        boolean hasSelectedItems = false;
+
+        for (LinearLayout dayLayout : new LinearLayout[]{mondayContent, tuesdayContent, wednesdayContent, thursdayContent, fridayContent, saturndayContent, sundayContent}) {
+            for (int i = 0; i < dayLayout.getChildCount(); i++) {
+                View child = dayLayout.getChildAt(i);
+                if (child.isSelected()) {
+                    hasSelectedItems = true;
+                    break;
+                }
+            }
+        }
+        ActionMode toolbar;
+        Toolbar toolb = findViewById(R.id.toolbar);
+        Menu toolbarMenu = toolb.getMenu();
+        MenuItem removeItem = toolbarMenu.findItem(R.id.action_remove);
+
+        // Если хотя бы один элемент выбран, показываем значок удаления
+        if (hasSelectedItems) {
+            removeItem.setVisible(true); // Показываем значок удаления
+        } else {
+            removeItem.setVisible(false); // Скрываем значок удаления
+        }
+        invalidateOptionsMenu();
+    }
+
 
     private void showErrorToast(String message) {
         runOnUiThread(() -> Toast.makeText(ScheduleActivity.this, message, Toast.LENGTH_SHORT).show());

@@ -6,4 +6,5 @@ public class Constants {
     public static final String URL_LOGIN = ROOT_URL + "login_user.php";
     public static final String URL_GET_SCHEDULE = ROOT_URL + "get_schedule.php";
     public static final String URL_ADD_SCHEDULE = ROOT_URL + "add_schedule.php";
+    public static final String URL_DELETE_SCHEDULE = ROOT_URL + "delete_schedule.php";
 }
