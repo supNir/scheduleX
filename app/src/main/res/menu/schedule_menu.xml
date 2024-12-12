@@ -1,19 +1,15 @@
-<menu xmlns:tools="http://schemas.android.com/tools"
+<menu
+    xmlns:tools="http://schemas.android.com/tools"
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     tools:ignore="ExtraText">
     <item
-        android:id="@+id/action_edit"
-        android:title="Редактировать"
+        android:id="@+id/action_add"
+        android:title="+"
         app:showAsAction="always" />
     <item
-        android:id="@+id/action_save"
-        android:title="Сохранить"
-        android:visibility="gone"
-        app:showAsAction="always" />
-    <item
-        android:id="@+id/action_cancel"
-        android:title="Отмена"
+        android:id="@+id/action_remove"
+        android:title="-"
         android:visibility="gone"
         app:showAsAction="always" />
 </menu>

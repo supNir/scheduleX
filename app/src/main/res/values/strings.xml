@@ -3,4 +3,14 @@
     <string name="confirm_password">Подтвердите пароль</string>
     <string name="register">Зарегистрироваться</string>
     <string name="login">Авторизоваться</string>
+    <string-array name="days_of_week">
+        <item>Понедельник</item>
+        <item>Вторник</item>
+        <item>Среда</item>
+        <item>Четверг</item>
+        <item>Пятница</item>
+        <item>Суббота</item>
+        <item>Воскресенье</item>
+    </string-array>
 </resources>
+

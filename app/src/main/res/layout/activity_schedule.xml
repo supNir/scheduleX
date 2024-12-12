@@ -3,8 +3,6 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-
-    <!-- Toolbar -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
@@ -14,8 +12,6 @@
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
         app:title="Расписание"
         tools:ignore="MissingConstraints" />
-
-    <!-- ScrollView для списка дней недели -->
     <ScrollView
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -29,8 +25,6 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:padding="8dp">
-
-            <!-- Пример одного раскрывающегося списка -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -57,19 +51,15 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:visibility="invisible"
+                        android:visibility="gone"
                         android:paddingTop="30dp"
                         android:lineSpacingExtra="8dp"
                         tools:ignore="MissingConstraints">
-                        <!-- Данные расписания будут добавлены программно -->
                     </LinearLayout>
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.cardview.widget.CardView>
-
-            <!-- Прочие дни недели с аналогичной структурой -->
-            <!-- Пятница, суббота и т.д. (следующие CardView блоки для других дней недели) -->
-            <androidx.cardview.widget.CardView
+         <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:elevation="4dp"
@@ -99,7 +89,6 @@
                         android:paddingTop="30dp"
                         android:lineSpacingExtra="8dp"
                         tools:ignore="MissingConstraints">
-                        <!-- Данные расписания будут добавлены программно -->
                     </LinearLayout>
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
@@ -134,8 +123,7 @@
                         android:paddingTop="30dp"
                         android:lineSpacingExtra="8dp"
                         tools:ignore="MissingConstraints">
-                        <!-- Данные расписания будут добавлены программно -->
-                    </LinearLayout>
+                   </LinearLayout>
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.cardview.widget.CardView>
@@ -169,8 +157,7 @@
                         android:paddingTop="30dp"
                         android:lineSpacingExtra="8dp"
                         tools:ignore="MissingConstraints">
-                        <!-- Данные расписания будут добавлены программно -->
-                    </LinearLayout>
+                        </LinearLayout>
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.cardview.widget.CardView>
@@ -202,7 +189,6 @@
                         android:paddingTop="30dp"
                         android:lineSpacingExtra="8dp"
                         tools:ignore="MissingConstraints">
-                        <!-- Данные расписания будут добавлены программно -->
                     </LinearLayout>
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.cardview.widget.CardView>

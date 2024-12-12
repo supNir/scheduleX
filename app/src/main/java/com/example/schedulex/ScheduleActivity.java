@@ -6,12 +6,19 @@ import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewTreeObserver;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
@@ -35,40 +42,57 @@ import java.util.Map;
 public class ScheduleActivity extends AppCompatActivity {
 
     private LinearLayout mondayContent;
+    private LinearLayout tuesdayContent;
+    private LinearLayout wednesdayContent;
+    private LinearLayout thursdayContent;
+    private LinearLayout fridayContent;
+    private LinearLayout saturndayContent;
+    private LinearLayout sundayContent;
     private boolean isEditMode = false;
     private String userRole = "user"; // Должно задаваться при авторизации
     // Локальное хранилище изменений
     private List<Map<String, String>> changes = new ArrayList<>();
+    String[] countries = {"Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_schedule);
-
-        // Устанавливаем Toolbar
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         userRole = getIntent().getStringExtra("role");
-
+        mondayContent = findViewById(R.id.mondayContent);
+        tuesdayContent = findViewById(R.id.tuesdayContent);
+        wednesdayContent = findViewById(R.id.wednesdayContent);
+        thursdayContent = findViewById(R.id.thursdayContent);
+        fridayContent = findViewById(R.id.fridayContent);
+        saturndayContent = findViewById(R.id.saturndayContent);
+        sundayContent = findViewById(R.id.sundayContent);
         if (userRole == null) {
             userRole = "user"; // Значение по умолчанию
         }
-        // Связываем элементы
-        mondayContent = findViewById(R.id.mondayContent);
-        mondayContent.post(() -> mondayContent.setTag(measureContentHeight(mondayContent)));
+        setupDaySchedule(R.id.mondayHeader, R.id.mondayContent, "monday");
+        setupDaySchedule(R.id.tuesdayHeader, R.id.tuesdayContent, "tuesday");
+        setupDaySchedule(R.id.wednesdayHeader, R.id.wednesdayContent, "wednesday");
+        setupDaySchedule(R.id.thursdayHeader, R.id.thursdayContent, "thursday");
+        setupDaySchedule(R.id.fridayHeader, R.id.fridayContent, "friday");
+        setupDaySchedule(R.id.saturndayHeader, R.id.saturndayContent, "saturday");
+        setupDaySchedule(R.id.sundayHeader, R.id.sundayContent, "sunday");
+    }
+    private void setupDaySchedule(int headerId, int contentId, String dayOfWeek) {
+        LinearLayout contentView = findViewById(contentId);
+        contentView.post(() -> contentView.setTag(measureContentHeight(contentView)));
 
-        // Добавляем обработчик на заголовок понедельника
-        findViewById(R.id.mondayHeader).setOnClickListener(v -> {
-            LinearLayout contentLayout = findViewById(R.id.mondayContent);
-            if (contentLayout.getVisibility() == View.GONE) {
-                loadDaySchedule("monday", contentLayout);
-                contentLayout.setVisibility(View.VISIBLE);
-                animateContentExpansion(contentLayout);
+        // Обработчик на заголовок дня
+        findViewById(headerId).setOnClickListener(v -> {
+            if (contentView.getVisibility() == View.GONE) {
+                loadDaySchedule(dayOfWeek, contentView);
+                contentView.setVisibility(View.VISIBLE);
+                animateContentExpansion(contentView);
             } else {
-                animateContentCollapse(contentLayout);
+                animateContentCollapse(contentView);
             }
         });
-        // Аналогично добавьте обработчики для остальных дней недели
     }
     private void animateContentExpansion(LinearLayout contentLayout) {
         // Отключаем мгновенный пересчёт высоты
@@ -86,7 +110,7 @@ public class ScheduleActivity extends AppCompatActivity {
         // Создаём анимацию изменения высоты
         ValueAnimator heightAnimator = ValueAnimator.ofInt(1, targetHeight);
         heightAnimator.setDuration(300); // Длительность анимации
-        heightAnimator.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
+        heightAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
 
         heightAnimator.addUpdateListener(animation -> {
             int animatedValue = (int) animation.getAnimatedValue();
@@ -103,12 +127,10 @@ public class ScheduleActivity extends AppCompatActivity {
             }
         });
 
-        // Анимация прозрачности
         contentLayout.animate()
                 .alpha(1f)
                 .setDuration(300)
                 .setListener(null);
-
         heightAnimator.start();
     }
 
@@ -123,7 +145,7 @@ public class ScheduleActivity extends AppCompatActivity {
 
         ValueAnimator animator = ValueAnimator.ofInt(initialHeight, 0); // Анимация от текущей высоты до 0
         animator.setDuration(300); // Длительность 300 мс
-        animator.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator()); // Плавная интерполяция
+        animator.setInterpolator(new AccelerateDecelerateInterpolator()); // Плавная интерполяция
 
         animator.addUpdateListener(animation -> {
             int animatedValue = (int) animation.getAnimatedValue();
@@ -151,26 +173,18 @@ public class ScheduleActivity extends AppCompatActivity {
     public boolean onPrepareOptionsMenu(Menu menu) {
         super.onPrepareOptionsMenu(menu);
         boolean isAdmin = userRole.equals("admin");
-        boolean isEditing = isEditMode;
-        // Показываем кнопку "Редактировать" только для администраторов
-        menu.findItem(R.id.action_edit).setVisible(isAdmin && !isEditing);
-        menu.findItem(R.id.action_save).setVisible(isEditing);
-        menu.findItem(R.id.action_cancel).setVisible(isEditing);
+        menu.findItem(R.id.action_add).setVisible(isAdmin);
+        menu.findItem(R.id.action_remove).setVisible(isAdmin);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_edit) {
-            enterEditMode();  // Включить режим редактирования
+        if (item.getItemId() == R.id.action_add) {
+            showAddScheduleDialog();
             return true;
         }
-        else if (item.getItemId() == R.id.action_save) {
-            confirmSaveChanges();  // Подтвердить сохранение изменений
-            return true;
-        }
-        else if (item.getItemId() == R.id.action_cancel) {
-            exitEditMode();  // Выйти из режима редактирования
+        else if (item.getItemId() == R.id.action_remove) {
             return true;
         }
         else {
@@ -178,125 +192,180 @@ public class ScheduleActivity extends AppCompatActivity {
         }
     }
 
-    private void enterEditMode() {
-        isEditMode = true;
-        expandAllDays();
-        invalidateOptionsMenu();
-        addEditControls();
+    private boolean validateInputs(String dayOfWeek, String startTime, String endTime, String subject, String room) {
+        if (dayOfWeek.isEmpty() || startTime.isEmpty() || endTime.isEmpty() || subject.isEmpty() || room.isEmpty()) {
+            return false;
+        }
+        // Проверяем формат и логику времени
+        return isTimeValid(startTime, endTime);
     }
 
-    private void exitEditMode() {
-        isEditMode = false;
-        invalidateOptionsMenu();
-        removeEditControls();
-        changes.clear(); // Очистить изменения при отмене
+    private boolean isTimeValid(String startTime, String endTime) {
+        try {
+            String[] startParts = startTime.split(":");
+            String[] endParts = endTime.split(":");
+
+            int startHour = Integer.parseInt(startParts[0]);
+            int startMinute = Integer.parseInt(startParts[1]);
+            int endHour = Integer.parseInt(endParts[0]);
+            int endMinute = Integer.parseInt(endParts[1]);
+
+            if (startHour < endHour || (startHour == endHour && startMinute < endMinute)) {
+                return true;
+            }
+        } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
+            // В случае ошибки формата возвращаем false
+        }
+        return false;
     }
 
-    private void confirmSaveChanges() {
-        new AlertDialog.Builder(this)
-                .setTitle("Сохранить изменения?")
-                .setMessage("Вы уверены, что хотите сохранить изменения?")
-                .setPositiveButton("Да", (dialog, which) -> saveChanges())
-                .setNegativeButton("Нет", null)
-                .show();
+
+    private void showAddScheduleDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(ScheduleActivity.this);
+        LayoutInflater inflater = getLayoutInflater();
+        View dialogView = inflater.inflate(R.layout.dialog_add_schedule, null);
+        builder.setView(dialogView);
+        Spinner spinner = dialogView.findViewById(R.id.spinner_day);
+        ArrayAdapter<String> adapter = new ArrayAdapter(this, android.R.layout.simple_spinner_item, countries);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        AdapterView.OnItemSelectedListener itemSelectedListener = new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                // Получаем выбранный объект
+                String item = (String)parent.getItemAtPosition(position);
+            }
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        };
+        spinner.setOnItemSelectedListener(itemSelectedListener);
+
+        Spinner daySpinner = dialogView.findViewById(R.id.spinner_day); // Спиннер для выбора дня недели
+        EditText startTimeInput = dialogView.findViewById(R.id.edit_start_time); // Ввод времени начала
+        EditText endTimeInput = dialogView.findViewById(R.id.edit_end_time); // Ввод времени конца
+        EditText subjectInput = dialogView.findViewById(R.id.edit_subject); // Ввод предмета
+        EditText roomInput = dialogView.findViewById(R.id.edit_room); // Ввод аудитории
+
+        builder.setTitle("Добавить расписание")
+                .setPositiveButton("Добавить", (dialog, which) -> {
+                    String dayOfWeek = daySpinner.getSelectedItem().toString();
+                    String startTime = startTimeInput.getText().toString();
+                    String endTime = endTimeInput.getText().toString();
+                    String subject = subjectInput.getText().toString();
+                    String room = roomInput.getText().toString();
+
+                    if (validateInputs(dayOfWeek, startTime, endTime, subject, room)) {
+                        addScheduleToServer(dayOfWeek, startTime, endTime, subject, room);
+                    } else {
+                        Toast.makeText(ScheduleActivity.this, "Заполните все поля!", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Отмена", (dialog, which) -> dialog.dismiss());
+
+        builder.create().show();
     }
 
-    private void saveChanges() {
+    private void addScheduleToServer(String dayOfWeek, String startTime, String endTime, String subject, String room) {
         new Thread(() -> {
+            String day = "";
             try {
-                URL url = new URL(Constants.URL_SAVE_SCHEDULE);
+                URL url = new URL(Constants.URL_ADD_SCHEDULE); // Убедитесь, что URL_ADD_SCHEDULE правильный
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
-                connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
                 connection.setDoOutput(true);
-
-                JSONArray changesArray = new JSONArray(changes);
-
-                try (OutputStream os = connection.getOutputStream()) {
-                    os.write(changesArray.toString().getBytes());
-                    os.flush();
+                switch (dayOfWeek) {
+                    case "Понедельник":
+                        day = "monday";
+                        break;
+                    case "Вторник":
+                        day = "tuesday";
+                        break;
+                    case "Среда":
+                        day = "wednesday";
+                        break;
+                    case "Четверг":
+                        day = "thursday";
+                        break;
+                    case "Пятница":
+                        day = "friday";
+                        break;
+                    case "Суббота":
+                        day = "saturnday";
+                        break;
+                    case "Воскресенье":
+                        day = "sunday";
+                        break;
                 }
+                String data = "day_of_week=" + day +
+                        "&start_time=" + startTime +
+                        "&end_time=" + endTime +
+                        "&subject=" + subject +
+                        "&room=" + room;
+
+                // Отправка данных
+                OutputStream outputStream = connection.getOutputStream();
+                outputStream.write(data.getBytes(StandardCharsets.UTF_8));
+                outputStream.flush();
+                outputStream.close();
 
                 int responseCode = connection.getResponseCode();
                 if (responseCode == HttpURLConnection.HTTP_OK) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                    StringBuilder response = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                    reader.close();
+
+                    String responseString = new String(response.toString().getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+                    JSONObject jsonResponse = new JSONObject(responseString);
+
+                    String finalDay = day;
                     runOnUiThread(() -> {
-                        Toast.makeText(this, "Изменения сохранены", Toast.LENGTH_SHORT).show();
-                        exitEditMode();
+                        try {
+                            if (jsonResponse.getInt("success") == 1) {
+                                Toast.makeText(ScheduleActivity.this, "Расписание успешно добавлено", Toast.LENGTH_SHORT).show();
+                                LinearLayout contentLayout = getContentLayout(finalDay); // Получаем Layout для обновления
+                                if (contentLayout != null) {
+                                    loadDaySchedule(finalDay, contentLayout);
+                                }
+                            } else {
+                                Toast.makeText(ScheduleActivity.this, "Ошибка при добавлении расписания", Toast.LENGTH_SHORT).show();
+                            }
+                        } catch (JSONException e) {
+                            throw new RuntimeException(e);
+                        }
                     });
                 } else {
-                    runOnUiThread(() -> Toast.makeText(this, "Ошибка сохранения изменений", Toast.LENGTH_SHORT).show());
+                    runOnUiThread(() -> Toast.makeText(ScheduleActivity.this, "Ошибка подключения", Toast.LENGTH_SHORT).show());
                 }
-
-                connection.disconnect();
             } catch (Exception e) {
                 e.printStackTrace();
-                runOnUiThread(() -> Toast.makeText(this, "Ошибка подключения", Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> Toast.makeText(ScheduleActivity.this, "Ошибка подключения", Toast.LENGTH_SHORT).show());
             }
         }).start();
     }
-
-    private void expandAllDays() {
-        // Развернуть все списки расписания (реализуйте аналогично для других дней)
-        mondayContent.setVisibility(View.VISIBLE);
-    }
-
-    private void addEditControls() {
-        // Добавить кнопки "+", "-", "Редактировать" для каждого дня и строки
-        addAddButton(mondayContent, "monday");
-    }
-
-    private void addAddButton(LinearLayout contentLayout, String dayOfWeek) {
-        TextView addButton = new TextView(this);
-        addButton.setText("+");
-        addButton.setTextSize(20);
-        addButton.setOnClickListener(v -> showEditDialog(dayOfWeek, null));
-        contentLayout.addView(addButton);
-    }
-
-    private void removeEditControls() {
-        // Удалить кнопки "+", "-", "Редактировать" из интерфейса
-    }
-
-    private void showEditDialog(String dayOfWeek, Map<String, String> scheduleData) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(scheduleData == null ? "Добавить запись" : "Редактировать запись");
-
-        @SuppressLint("InflateParams")
-        View dialogView = getLayoutInflater().inflate(R.layout.dialog_edit_schedule, null);
-        builder.setView(dialogView);
-
-        EditText startTimeField = dialogView.findViewById(R.id.edit_start_time);
-        EditText endTimeField = dialogView.findViewById(R.id.edit_end_time);
-        EditText subjectField = dialogView.findViewById(R.id.edit_subject);
-        EditText roomField = dialogView.findViewById(R.id.edit_room);
-
-        if (scheduleData != null) {
-            startTimeField.setText(scheduleData.get("start_time"));
-            endTimeField.setText(scheduleData.get("end_time"));
-            subjectField.setText(scheduleData.get("subject"));
-            roomField.setText(scheduleData.get("room"));
+    private LinearLayout getContentLayout(String day) {
+        switch (day) {
+            case "monday":
+                return mondayContent;
+            case "tuesday":
+                return tuesdayContent;
+            case "wednesday":
+                return wednesdayContent;
+            case "thursday":
+                return thursdayContent;
+            case "friday":
+                return fridayContent;
+            case "saturday":
+                return saturndayContent;
+            case "sunday":
+                return sundayContent;
+            default:
+                return null;
         }
-
-        builder.setPositiveButton("Сохранить", (dialog, which) -> {
-            Map<String, String> change = new HashMap<>();
-            change.put("day", dayOfWeek);
-            change.put("start_time", startTimeField.getText().toString());
-            change.put("end_time", endTimeField.getText().toString());
-            change.put("subject", subjectField.getText().toString());
-            change.put("room", roomField.getText().toString());
-
-            if (scheduleData != null) {
-                change.put("id", scheduleData.get("id")); // Указать ID для редактирования
-                change.put("action", "edit");
-            } else {
-                change.put("action", "add");
-            }
-
-            changes.add(change);
-        });
-
-        builder.setNegativeButton("Отмена", null);
-        builder.show();
     }
 
     @SuppressLint("SetTextI18n")
@@ -379,9 +448,5 @@ public class ScheduleActivity extends AppCompatActivity {
 
     private void showErrorToast(String message) {
         runOnUiThread(() -> Toast.makeText(ScheduleActivity.this, message, Toast.LENGTH_SHORT).show());
-    }
-
-    private void toggleDayVisibility(LinearLayout contentLayout) {
-        // Логика анимации для сворачивания/разворачивания дня
     }
 }
